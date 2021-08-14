@@ -1,0 +1,68 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet"
+          href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+          integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
+          crossorigin="anonymous">
+   <link rel="stylesheet" href="{% static 'stylesheet.css' %}">
+    <title>Download</title>
+</head>
+<body class="udemy-form">
+<div class="justify-content-center">
+    <form class="form-horizontal" method="post" action="download">{% csrf_token %}
+        <fieldset>
+            <!-- Form Name -->
+            <legend>download file</legend>
+            <!-- Text input-->
+            <div class="form-group">
+                <label class="col-md-4 control-label" for="email"></label>
+                <div class="col-md-5">
+                    <input id="file" name="fileurl" type="text"
+                           placeholder="File URL" class="form-control input-md"
+                           required="">
+
+                </div>
+            </div>
+
+            <!-- Button -->
+            <div class="form-group">
+                <label class="col-md-4 control-label" for="download"></label>
+                <div class="col-md-4">
+                    <button id="download" name="download" class="btn btn-success" type="submit">Download
+                    </button>
+                </div>
+            </div>
+        </fieldset>
+    </form>
+    <div class="alert alert-success">
+        <label id="success_message">{{ message }}</label>
+    </div>
+
+</div>
+<!-- Optional JavaScript -->
+<!-- jQuery first, then Popper.js, then Bootstrap JS -->
+<script src="http://code.jquery.com/jquery-3.3.1.js"
+        integrity="sha256-2Kok7MbOyxpgUVvAk/HJ2jigOSYS2auK4Pfzbm7uH60="
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+        integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+        crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+        integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+        crossorigin="anonymous"></script>
+<script src="{% static 'script.js' %}"></script>
+<script src="{% static 'jqBootstrapValidation.js' %}"></script>
+<script>
+    $(document).ready(apply_validation());
+    $(set_message_visibility);
+</script>
+</body>
+</html>

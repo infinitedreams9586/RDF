@@ -1,0 +1,158 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet"
+          href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+          integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
+          crossorigin="anonymous">
+   <link rel="stylesheet" href="{% static 'stylesheet.css' %}">
+    <title>Visualization</title>
+
+</head>
+<body class="udemy-form">
+<div class="justify-content-center">
+    <form class="form-horizontal">{% csrf_token %}
+        <fieldset>
+
+            <!-- Form Name -->
+            <legend>User Profile</legend>
+            <div class="form-group">
+                <label class="col-md-4 control-label"
+                       for="passwordconfirm">{{ currentuser }}</label>
+            </div>
+            <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css"
+                  rel="stylesheet">
+            <div class="container">
+                <div class="row">
+                    <div class="form-group">
+
+                        <div class="container">
+                            <div class="container">
+
+                            </div>
+                            <div class="container">
+                                <img id="profileimage" alt=""
+                                     src="https://www.gravatar.com/avatar/00000000000000000000000000000000"
+                                     height="128" width="128">
+                            </div>
+                            <div class="container">
+                                <div class="container">
+                                    <b>Name : </b>
+                                    <strong>{{ full_name }}</strong>
+                                </div>
+                                <div class="container"><b>Position : </b>
+                                    <i>{{ current_position }}</i>
+                                </div>
+                                <div class="container" id="email"><b>Email
+                                    :</b> <i>{{ email }}</i>
+                                </div>
+                                <div class="container"><b>About : </b>
+                                    <p>{{ about_you }}</p>
+                                </div>
+                                <div class="container"><b>Favorite Topics</b>
+                                    {% for topic in topics %}
+                                        {% if forloop.counter0|divisibleby:'2' %}
+                                            <div class="row">
+                                        {% endif %}
+                                    <div class="container">
+                                        <label for="topics-0">
+                                            <li>{{ topic.topic }}
+                                                {% if topic.common %}
+                                                    <code>*</code> {% endif %}
+                                            </li>
+                                        </label>
+                                    </div>
+                                    {% if forloop.counter0|divisibleby:'2' %}
+                                    {% else %}</div>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                                <div class="container"></div>
+                                <div class="container">
+                                    <label><i><code>*</code> indicates common
+                                        favorite topics with you, <br>if you
+                                        are logged in and seeing profile of an
+                                        another user.</i></label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                {% if currentuser %}
+                    <div class="form-group">
+                        <label class="col-md-4 control-label"
+                               for="save"></label>
+                        <div class="col-md-4">
+                            <button id="profile" name="profile"
+                                    class="btn btn-info">
+                                Back to profile edit
+                            </button>
+                        </div>
+                    </div>
+                {% endif %}
+                <div class="form-group">
+                    <label class="col-md-4 control-label" for="save"></label>
+                    <div class="col-md-4">
+                        <button id="gotoregister" name="gotoregister"
+                                class="btn btn-info">
+                            Back To Main
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-md-4 control-label" for="save"></label>
+                    <div class="col-md-4">
+                        <button id="users" name="users"
+                                class="btn btn-info">
+                            List Users
+                        </button>
+                    </div>
+                </div>
+                {% if currentuser %}
+                    <div class="form-group">
+                        <label class="col-md-4 control-label"
+                               for="save"></label>
+                        <div class="col-md-4">
+                            <button id="signout" name="signout"
+                                    class="btn btn-warning">
+                                Sign Out
+                            </button>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+
+        </fieldset>
+    </form>
+    <div class="alert alert-success">
+        <label id="success_message">{{ message }}</label>
+    </div>
+</div>
+<!-- Optional JavaScript -->
+<!-- jQuery first, then Popper.js, then Bootstrap JS -->
+<script src="http://code.jquery.com/jquery-3.3.1.js"
+        integrity="sha256-2Kok7MbOyxpgUVvAk/HJ2jigOSYS2auK4Pfzbm7uH60="
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+        integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+        crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+        integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+        crossorigin="anonymous"></script>
+<script src="{% static 'script.js' %}"></script>
+<script src="{% static 'jqBootstrapValidation.js' %}"></script>
+<script>
+    $(set_message_visibility);
+    $(document).ready(set_profile_pic());
+</script>
+</body>
+</html>
