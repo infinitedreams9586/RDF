@@ -1,7 +1,7 @@
 asgiref==3.4.1
-Django==3.2.6
+Django
 isodate==0.6.0
-pyparsing==2.4.7
+pyparsing
 pytz==2021.1
 rdflib==6.0.0
 six==1.16.0

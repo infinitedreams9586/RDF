@@ -131,16 +131,16 @@ class DCGraphCreator(DCGraph):
 
     def set_definitions(self):
         self.g.add((self.set.datastructure_name, RDF.type, QB.DataStructureDefinition))
-        self.g.add((self.set.datastructure_name, RDF.type, QB.component))
         for component in self.set.get_dimensions():
+            self.g.add((self.set.datastructure_name, QB.component, self.set.eg[component[0]]))
             if component[0] in self.set.create_slices_on():
-                self.g.add((QB.component, QB.dimension, self.set.eg[component[0]]))
-                self.g.add((QB.dimension, QB.componentAttachment, QB.slice))
+                self.g.add((self.set.eg[component[0]], RDF.type, QB.ComponentSpecification))
+                self.g.add((self.set.eg[component[0]], QB.componentAttachment, QB.Slice))
             else:
-                self.g.add((QB.component, QB.dimension, self.set.eg[component[0]]))
+                self.g.add((self.set.eg[component[0]], RDF.type, QB.ComponentSpecification))
 
         for measure in self.set.get_measures():
-            self.g.add((QB.component, QB.measure, self.set.eg[measure[0]]))
+            self.g.add((self.set.eg[measure[0]], RDF.type, QB.ComponentSpecification))
 
         # How to implement attributes
         ## TODO: Implement attributes
@@ -179,7 +179,7 @@ class DCGraphCreator(DCGraph):
             self.g.add((self.set.eg["slice{0}".format(slice)], RDF.type, QB.Slice))
             self.g.add((self.set.eg["slice{0}".format(slice)], QB.sliceStructure, self.set.eg[self.set.create_slices_on()[0]]))
 
-            self.g.add((self.set.dataset_name, QB.slice, self.set.eg["slice{0}".format(slice)]))
+            self.g.add((self.set.dataset_name, QB.Slice, self.set.eg["slice{0}".format(slice)]))
             for id in obs_ids:
                 self.g.add((self.set.eg["slice{0}".format(slice)], QB.observation, id))
 
@@ -192,6 +192,5 @@ class DCGraphCreator(DCGraph):
         self.set_observations_by_slice()
 
         self.dataset.graph(self.g)
-        print(self.g.serialize(format=format))
-        return self.dataset.serialize(format=format)
+        return self.g.serialize(format=format)
 
