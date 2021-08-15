@@ -76,3 +76,11 @@ SELECT ?geoId (SUM(?y) as ?casesSum) (SUM(?z) as ?deathSum) WHERE {
 7. GraphDB visualization
 
 ![Visualization](/docs/Visualization.png)
+
+#### Files #####
+
+1. Downloaded CSV file  
+[CSV Data File] (/docs/datafile.csv)
+  
+2. Generated Turtle file  
+[Turtle file] (/docs/converted.ttl)
