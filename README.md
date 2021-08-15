@@ -80,7 +80,7 @@ SELECT ?geoId (SUM(?y) as ?casesSum) (SUM(?z) as ?deathSum) WHERE {
 #### Files #####
 
 1. Downloaded CSV file  
-[CSV Data File] (/docs/datafile.csv)
+[CSV Data File](/docs/datafile.csv)
   
 2. Generated Turtle file  
-[Turtle file] (/docs/converted.ttl)
+[Turtle file](/docs/converted.ttl)
