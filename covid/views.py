@@ -9,8 +9,8 @@ import urllib.request
 import os
 
 def get_directory():
-    directory = "{0}/uploads".format(os.path.expanduser("~"))
-    # directory = "{0}/uploads".format('/usr/src/app')
+    # directory = "{0}/uploads".format(os.path.expanduser("~"))
+    directory = "{0}/uploads".format('/usr/src/app')
     return directory
 
 def is_dir_exist():
@@ -24,8 +24,8 @@ def create_directory():
         os.makedirs(get_directory())
 
 def upload_to_graphdb(turtlefile):
-    #url = 'http://graphdbinstance:7200/repositories/ECDC/statements'
-    url = 'http://localhost:7202/repositories/ECDC/statements'
+    url = 'http://graphdbinstance:7200/repositories/ECDC/statements'
+    # url = 'http://localhost:7202/repositories/ECDC/statements'
     headers = {
         'Content-type': 'application/x-turtle',
     }
