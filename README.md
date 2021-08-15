@@ -57,7 +57,7 @@ generate turtle file and upload the file on GraphDB "ECDC" repository.
 ![Download and process complete screenshot](/docs/Complete.png)
 
 5. Once GraphDB finishes the processing of file. It is possible to execute queries and see the visualization.
-6. Here is the sample query executed to find cases and deaths for Germany for August, 2021.
+6. Here is the sample query executed to find cases and deaths for Germany for July, 2021.
 ```sparksql
 PREFIX eg:<http://example.org/ns#>
 PREFIX ns1: <http://purl.org/linked-data/cube#>
