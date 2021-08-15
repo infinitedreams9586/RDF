@@ -121,7 +121,7 @@ class DCGraphCreator(DCGraph):
         for _, v in self.set.dataset.items():
             self.g.add((self.set.dataset_name, v[0], v[1]))
         for slice in self.get_slices():
-            self.g.add((self.set.dataset_name, QB.Slice, URIRef(self.set.eg['{}'.format(slice)])))
+            self.g.add((self.set.dataset_name, QB.Slice, URIRef(self.set.eg['slice{}'.format(slice)])))
 
     def set_definitions(self):
         self.g.add((self.set.datastructure_name, RDF.type, QB.DataStructureDefinition))
@@ -161,7 +161,7 @@ class DCGraphCreator(DCGraph):
             obs_ids = []
             observations = self.df[self.df[self.set.create_slices_on()[0]] == slice]
             for i, observation in observations.iterrows():
-                observation_name = self.set.eg["{0}{1}".format(slice, i)]
+                observation_name = self.set.eg["o{0}{1}".format(slice, i)]
                 obs_ids.append(observation_name)
                 self.g.add((observation_name, RDF.type, QB.Observation))
 
@@ -170,12 +170,12 @@ class DCGraphCreator(DCGraph):
                 for measure in self.set.get_measures():
                     self.g.add((observation_name, self.set.eg[measure[0]], Literal(observation[measure[0]], datatype=measure[1])))
 
-            self.g.add((self.set.eg["{0}".format(slice)], RDF.type, QB.Slice))
-            self.g.add((self.set.eg["{0}".format(slice)], QB.sliceStructure, self.set.eg[self.set.create_slices_on()[0]]))
+            self.g.add((self.set.eg["slice{0}".format(slice)], RDF.type, QB.Slice))
+            self.g.add((self.set.eg["slice{0}".format(slice)], QB.sliceStructure, self.set.eg[self.set.create_slices_on()[0]]))
 
-            self.g.add((self.set.dataset_name, QB.Slice, self.set.eg["{0}".format(slice)]))
+            self.g.add((self.set.dataset_name, QB.Slice, self.set.eg["slice{0}".format(slice)]))
             for id in obs_ids:
-                self.g.add((self.set.eg["{0}".format(slice)], QB.observation, id))
+                self.g.add((self.set.eg["slice{0}".format(slice)], QB.observation, id))
 
     def create_graph(self, format='turtle'):
         self.set_namespace()

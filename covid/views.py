@@ -9,7 +9,8 @@ import urllib.request
 import os
 
 def get_directory():
-    directory = "{0}/uploads".format('/usr/src/app')
+    directory = "{0}/uploads".format(os.path.expanduser("~"))
+    # directory = "{0}/uploads".format('/usr/src/app')
     return directory
 
 def is_dir_exist():
@@ -23,13 +24,14 @@ def create_directory():
         os.makedirs(get_directory())
 
 def upload_to_graphdb(turtlefile):
-    url = 'http://graphdbinstance:7200/repositories/ECDC/statements'
+    #url = 'http://graphdbinstance:7200/repositories/ECDC/statements'
+    url = 'http://localhost:7202/repositories/ECDC/statements'
     headers = {
         'Content-type': 'application/x-turtle',
     }
     response = requests.post(url, headers=headers, params={}, data=open(turtlefile,'r', encoding='utf-8').read())
     if response.status_code not in [200, 204]:
-        raise HttpResponse(status=500)
+        raise HttpResponse(status=response.status_code)
 
 
 # Create your views here.
@@ -64,12 +66,12 @@ class Download(BaseView):
         with urllib.request.urlopen(data['fileurl'][0]) as f:
             csv_file = f.read().decode('utf-8')
 
-        with open(os.path.join(get_directory(), "datafile.csv"), "w+") as f:
+        with open(os.path.join(get_directory(), "datafile.csv"), "w") as f:
             f.write(csv_file)
 
         graphCreator = DCGraphCreator(filepath=os.path.join(get_directory(), "datafile.csv"), of_type=ECDCSet)
 
-        with open(os.path.join(get_directory(), "converted.ttl"), "w+") as f:
+        with open(os.path.join(get_directory(), "converted.ttl"), "w") as f:
             f.write(graphCreator.create_graph(format='turtle'))
 
         upload_to_graphdb(os.path.join(get_directory(), "converted.ttl"))

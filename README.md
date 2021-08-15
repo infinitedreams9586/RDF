@@ -67,7 +67,7 @@ SELECT ?geoId (SUM(?y) as ?casesSum) (SUM(?z) as ?deathSum) WHERE {
     ?x eg:cases ?y .
     ?x eg:deaths ?z .
     ?x eg:dateRep ?fil .
-    FILTER contains(?fil, "08/2021") .
+    FILTER contains(?fil, "07/2021") .
 }  GROUP BY ?geoId
 ```
 7. Query result and verification.
