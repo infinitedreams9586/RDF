@@ -40,6 +40,11 @@
         "name" : "Remove statements",
         "body" : "PREFIX dc: <http://purl.org/dc/elements/1.1/>\nDELETE DATA\n{\nGRAPH <http://example> {\n    <http://example/book1> dc:title \"A new book\" ;\n                           dc:creator \"A.N.Other\" .\n    }\n}",
         "shared" : false
+      },
+      "GermanyFinalWorks" : {
+        "name" : "GermanyFinalWorks",
+        "body" : "PREFIX eg:<http://example.org/ns#>\nPREFIX ns1: <http://purl.org/linked-data/cube#>\nSELECT ?geoId (SUM(?y) as ?casesSum) (SUM(?z) as ?deathSum) WHERE {\n    ?x eg:geoId ?geoId .\n    ?x eg:countriesAndTerritories \"Germany\" .\n    ?x eg:cases ?y .\n    ?x eg:deaths ?z .\n    ?x eg:dateRep ?fil .\n    FILTER contains(?fil, \"08/2021\") .\n}  GROUP BY ?geoId",
+        "shared" : false
       }
     }
   },
