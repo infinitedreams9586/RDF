@@ -8,7 +8,7 @@ class ECDCSet:
         super(ECDCSet, self).__init__()
         self.eg = Namespace('http://example.org/ns#')
         self.exgeo = Namespace('http://example.org/geo#')
-        self.admx_attribute = Namespace('http://purl.org/linked-data/sdmx/2009/attribute#')
+        self.admxattribute = Namespace('http://purl.org/linked-data/sdmx/2009/attribute#')
 
         self.dateRep = ('dateRep', XSD.string)
         self.day = ('day', XSD.unsignedShort)
@@ -40,7 +40,7 @@ class ECDCSet:
         return [self.countriesAndterritories[0]]
 
     def get_namespaces(self):
-        return [('eg', self.eg), ('ex-geo', self.exgeo), ('admx-attribute', self.admx_attribute)]
+        return [('eg', self.eg), ('ex-geo', self.exgeo), ('admx-attribute', self.admxattribute)]
 
     def set_dataset_name(self):
         self.dataset_name = URIRef(self.eg['dataset-covid'])
@@ -56,7 +56,7 @@ class ECDCSet:
         self.dataset['publisher'] = (DCTERMS.publisher, URIRef(self.eg['organization']))
         self.dataset['issued'] = (DCTERMS.issued, Literal('2021-08-14', datatype=XSD.date))
         self.dataset['structure'] = (QB.structure, self.datastructure_name)
-        self.dataset['unitMeasure'] = (URIRef(self.admx_attribute['unitMeasure']), Literal('cases', lang='en'))
+        self.dataset['unitMeasure'] = (URIRef(self.admxattribute['unitMeasure']), Literal('cases', lang='en'))
 
     def set_slice_properties(self):
         self.slice['label'] = (RDFS.label, Literal('Slice by country', lang='en'))
@@ -73,35 +73,29 @@ class DCGraph:
 
     def get_slices(self):
         if not self.filepath:
-            return "Error"
+            raise FileNotFoundError()
 
         self.df = pd.read_csv(self.filepath)
         slices = self.df[self.set.create_slices_on()[0]].unique().tolist()
         return slices
 
     def set_namespace(self):
-        g = Graph()
-        self.dataset.add_graph(g)
+        pass
 
     def set_dataset(self):
-        g = Graph()
-        self.dataset.add_graph(g)
+        pass
 
     def set_definitions(self):
-        g = Graph()
-        self.dataset.add_graph(g)
+        pass
 
     def set_slice(self):
-        g = Graph()
-        self.dataset.add_graph(g)
+        pass
 
     def set_dimensions_measures(self):
-        g = Graph()
-        self.dataset.add_graph(g)
+        pass
 
     def set_observations_by_slice(self):
-        g = Graph()
-        self.dataset.add_graph(g)
+        pass
 
     def create_graph(self, format='turtle'):
         self.set_namespace()
@@ -127,7 +121,7 @@ class DCGraphCreator(DCGraph):
         for _, v in self.set.dataset.items():
             self.g.add((self.set.dataset_name, v[0], v[1]))
         for slice in self.get_slices():
-            self.g.add((self.set.dataset_name, QB.Slice, URIRef(self.set.eg['slice{}'.format(slice)])))
+            self.g.add((self.set.dataset_name, QB.Slice, URIRef(self.set.eg['{}'.format(slice)])))
 
     def set_definitions(self):
         self.g.add((self.set.datastructure_name, RDF.type, QB.DataStructureDefinition))
@@ -142,10 +136,10 @@ class DCGraphCreator(DCGraph):
         for measure in self.set.get_measures():
             self.g.add((self.set.eg[measure[0]], RDF.type, QB.ComponentSpecification))
 
-        # How to implement attributes
+        # How to implement attributes ?
         ## TODO: Implement attributes
 
-        self.g.add((self.set.datastructure_name, QB.sliceKey, self.set.eg[self.set.create_slices_on()]))
+        self.g.add((self.set.datastructure_name, QB.sliceKey, self.set.eg[self.set.create_slices_on()[0]]))
 
     def set_slice(self):
         self.g.add((self.set.eg[self.set.create_slices_on()[0]], RDF.type, QB.sliceKey))
@@ -167,7 +161,7 @@ class DCGraphCreator(DCGraph):
             obs_ids = []
             observations = self.df[self.df[self.set.create_slices_on()[0]] == slice]
             for i, observation in observations.iterrows():
-                observation_name = self.set.eg["o{0}{1}".format(slice, i)]
+                observation_name = self.set.eg["{0}{1}".format(slice, i)]
                 obs_ids.append(observation_name)
                 self.g.add((observation_name, RDF.type, QB.Observation))
 
@@ -176,12 +170,12 @@ class DCGraphCreator(DCGraph):
                 for measure in self.set.get_measures():
                     self.g.add((observation_name, self.set.eg[measure[0]], Literal(observation[measure[0]], datatype=measure[1])))
 
-            self.g.add((self.set.eg["slice{0}".format(slice)], RDF.type, QB.Slice))
-            self.g.add((self.set.eg["slice{0}".format(slice)], QB.sliceStructure, self.set.eg[self.set.create_slices_on()[0]]))
+            self.g.add((self.set.eg["{0}".format(slice)], RDF.type, QB.Slice))
+            self.g.add((self.set.eg["{0}".format(slice)], QB.sliceStructure, self.set.eg[self.set.create_slices_on()[0]]))
 
-            self.g.add((self.set.dataset_name, QB.Slice, self.set.eg["slice{0}".format(slice)]))
+            self.g.add((self.set.dataset_name, QB.Slice, self.set.eg["{0}".format(slice)]))
             for id in obs_ids:
-                self.g.add((self.set.eg["slice{0}".format(slice)], QB.observation, id))
+                self.g.add((self.set.eg["{0}".format(slice)], QB.observation, id))
 
     def create_graph(self, format='turtle'):
         self.set_namespace()

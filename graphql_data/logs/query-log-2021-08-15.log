@@ -1,0 +1,1356 @@
+[INFO ] 2021-08-15 05:07:12,181 [repositories/ECDC | c.o.t.m.MonitorRepositoryConnection] Using parallel mode for ingestion
+[INFO ] 2021-08-15 05:36:56,321 [repositories/ECDC | c.o.t.m.MonitorRepositoryConnection] Using parallel mode for ingestion
+[ERROR] 2021-08-15 05:42:14,928 [repositories/ECDC | c.o.t.q.LoggingClosableIteration] Error while executing query: 565ms
+<?xml version='1.0'?>
+<query includeInferred='true' maxExecutionTime='0'>
+	<body>PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
+PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
+PREFIX onto: &lt;http://www.ontotext.com/&gt;
+PREFIX rank: &lt;http://www.ontotext.com/owlim/RDFRank#&gt;
+
+SELECT ?peer (GROUP_CONCAT(DISTINCT ?pred; separator="&lt;&gt;") as ?preds)
+       # The rest aren't used when we process the results but are needed for ORDER BY to work properly
+       (MIN(?preferredTypesNorm) AS ?minPrefTypes)
+       (MIN(?preferredPredicatesNorm) AS ?minPrefPreds)
+       (?minPrefTypes + ?minPrefPreds AS ?minTypeAndPred)
+       (MIN(?isMeta) AS ?minIsMeta)
+
+{
+
+    BIND (&lt;http://purl.org/linked-data/cube#Observation&gt; as ?node)
+	{
+	    # Left to right relations (starting IRI is the subject)
+        ?node ?p ?o .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("L&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+    }
+    UNION
+    {
+	    # Right to left relations (starting IRI is the object)
+		?o ?p ?node .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("R&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+	}
+
+    # Preferred predicates filter
+	BIND(10000000 AS ?preferredPredicatesNorm)
+
+    # Preferred types filter
+	BIND(10000000 AS ?preferredTypesNorm)
+
+    # Rejected predicates filter, they are IRIs which are not listed as links but will be listed as properties in
+    # through resourceProperties.sparql
+	FILTER (?p not in (&lt;http://dbpedia.org/property/logo&gt; , &lt;http://dbpedia.org/property/hasPhotoCollection&gt; , &lt;http://dbpedia.org/property/website&gt; , &lt;http://dbpedia.org/property/homepage&gt; , &lt;http://dbpedia.org/ontology/thumbnail&gt; , &lt;http://xmlns.com/foaf/0.1/depiction&gt; , &lt;http://xmlns.com/foaf/0.1/homepage&gt; , &lt;http://xmlns.com/foaf/0.1/mbox&gt;))
+
+	# If a rejectedPredicate ends with a * it is treated as a rejectedPredicatesStartsWith and for each !strstarts(str(?p), ...) is added
+    FILTER(!strstarts(str(?p), "http://dbpedia.org/ontology/wikiPage") &amp;&amp; !strstarts(str(?p), "http://dbpedia.org/property/wikiPage") &amp;&amp; !strstarts(str(?p), "http://factforge.net/"))
+
+    # Rejected types filter
+    FILTER NOT EXISTS {
+        VALUES (?rt) {  }
+        ?peer a ?rt .
+    }
+
+  	BIND (strstarts(str(?p), "http://purl.org/dc/terms/") || strstarts(str(?p), "http://dbpedia.org/ontology/subsidiary") || ?p = &lt;http://dbpedia.org/property/isCitedBy&gt; as ?isMeta)
+
+
+    
+
+}
+
+# Grouping by ?rank needed so that ORDER BY works properly
+GROUP BY ?peer ?rank
+
+# First we get everything that has both a preferred type and preffered predicate (lowest value type/predicate sorts higher)
+# Then we get everything that has either a pereferred type or a preferred predicate (lowest value type/predicate sorts higher)
+# Then we get everything that ISN'T solely meta predicates (dc:xxx or dbo:subsidiary)
+# Finally we sort according to highest RDFRank
+ORDER BY ?minTypeAndPred ?minIsMeta DESC(?rank)
+
+# Total limit on peers (i.e. balls on the diagram)
+LIMIT 20
+</body>
+</query>
+
+java.lang.NullPointerException: null
+	at com.ontotext.trree.query.GdbGroupIterator.buildEntries(GdbGroupIterator.java:244)
+	at com.ontotext.trree.query.GdbGroupIterator.createIterator(GdbGroupIterator.java:144)
+	at com.ontotext.trree.query.GdbGroupIterator.hasNext(GdbGroupIterator.java:106)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at com.ontotext.trree.query.OwlimOrderIterator.createIteration(OwlimOrderIterator.java:102)
+	at org.eclipse.rdf4j.common.iteration.DelayedIteration.hasNext(DelayedIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at org.eclipse.rdf4j.common.iteration.LimitIteration.hasNext(LimitIteration.java:67)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailConnectionImpl$ConnectionClosingIteration.hasNext(SailConnectionImpl.java:3052)
+	at com.ontotext.trree.query.LoggingClosableIteration.hasNext(LoggingClosableIteration.java:87)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:476)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:443)
+	at com.ontotext.forest.core.semantic.repository.SemanticRepository$WithRawConnection.run(SemanticRepository.java:218)
+	at com.ontotext.forest.graphexplore.GraphExploreController.links(GraphExploreController.java:517)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:190)
+	at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:138)
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:105)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:878)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:792)
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1040)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:943)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1006)
+	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:898)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:655)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:883)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:764)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:228)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.core.request.RequestFilter.doFilterInternal(RequestFilter.java:52)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.github.ziplet.filter.compression.CompressingFilter.doFilter(CompressingFilter.java:263)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.security.AdminDelegatingFilterProxy.doFilter(AdminDelegatingFilterProxy.java:84)
+	at org.springframework.web.filter.DelegatingFilterProxy.invokeDelegate(DelegatingFilterProxy.java:358)
+	at org.springframework.web.filter.DelegatingFilterProxy.doFilter(DelegatingFilterProxy.java:271)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:202)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:97)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:542)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:143)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:92)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:78)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:357)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:382)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:65)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:893)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1723)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:49)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base/java.lang.Thread.run(Thread.java:829)
+[ERROR] 2021-08-15 05:48:33,114 [repositories/ECDC | c.o.t.q.LoggingClosableIteration] Error while executing query: 166ms
+<?xml version='1.0'?>
+<query includeInferred='true' maxExecutionTime='0'>
+	<body>PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
+PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
+PREFIX onto: &lt;http://www.ontotext.com/&gt;
+PREFIX rank: &lt;http://www.ontotext.com/owlim/RDFRank#&gt;
+
+SELECT ?peer (GROUP_CONCAT(DISTINCT ?pred; separator="&lt;&gt;") as ?preds)
+       # The rest aren't used when we process the results but are needed for ORDER BY to work properly
+       (MIN(?preferredTypesNorm) AS ?minPrefTypes)
+       (MIN(?preferredPredicatesNorm) AS ?minPrefPreds)
+       (?minPrefTypes + ?minPrefPreds AS ?minTypeAndPred)
+       (MIN(?isMeta) AS ?minIsMeta)
+
+{
+
+    BIND (&lt;http://purl.org/linked-data/cube#Observation&gt; as ?node)
+	{
+	    # Left to right relations (starting IRI is the subject)
+        ?node ?p ?o .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("L&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+    }
+    UNION
+    {
+	    # Right to left relations (starting IRI is the object)
+		?o ?p ?node .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("R&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+	}
+
+    # Preferred predicates filter
+	BIND(10000000 AS ?preferredPredicatesNorm)
+
+    # Preferred types filter
+	BIND(10000000 AS ?preferredTypesNorm)
+
+    # Rejected predicates filter, they are IRIs which are not listed as links but will be listed as properties in
+    # through resourceProperties.sparql
+	FILTER (?p not in (&lt;http://dbpedia.org/property/logo&gt; , &lt;http://dbpedia.org/property/hasPhotoCollection&gt; , &lt;http://dbpedia.org/property/website&gt; , &lt;http://dbpedia.org/property/homepage&gt; , &lt;http://dbpedia.org/ontology/thumbnail&gt; , &lt;http://xmlns.com/foaf/0.1/depiction&gt; , &lt;http://xmlns.com/foaf/0.1/homepage&gt; , &lt;http://xmlns.com/foaf/0.1/mbox&gt;))
+
+	# If a rejectedPredicate ends with a * it is treated as a rejectedPredicatesStartsWith and for each !strstarts(str(?p), ...) is added
+    FILTER(!strstarts(str(?p), "http://dbpedia.org/ontology/wikiPage") &amp;&amp; !strstarts(str(?p), "http://dbpedia.org/property/wikiPage") &amp;&amp; !strstarts(str(?p), "http://factforge.net/"))
+
+    # Rejected types filter
+    FILTER NOT EXISTS {
+        VALUES (?rt) {  }
+        ?peer a ?rt .
+    }
+
+  	BIND (strstarts(str(?p), "http://purl.org/dc/terms/") || strstarts(str(?p), "http://dbpedia.org/ontology/subsidiary") || ?p = &lt;http://dbpedia.org/property/isCitedBy&gt; as ?isMeta)
+
+
+    
+
+}
+
+# Grouping by ?rank needed so that ORDER BY works properly
+GROUP BY ?peer ?rank
+
+# First we get everything that has both a preferred type and preffered predicate (lowest value type/predicate sorts higher)
+# Then we get everything that has either a pereferred type or a preferred predicate (lowest value type/predicate sorts higher)
+# Then we get everything that ISN'T solely meta predicates (dc:xxx or dbo:subsidiary)
+# Finally we sort according to highest RDFRank
+ORDER BY ?minTypeAndPred ?minIsMeta DESC(?rank)
+
+# Total limit on peers (i.e. balls on the diagram)
+LIMIT 20
+</body>
+</query>
+
+java.lang.NullPointerException: null
+	at com.ontotext.trree.query.GdbGroupIterator.buildEntries(GdbGroupIterator.java:244)
+	at com.ontotext.trree.query.GdbGroupIterator.createIterator(GdbGroupIterator.java:144)
+	at com.ontotext.trree.query.GdbGroupIterator.hasNext(GdbGroupIterator.java:106)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at com.ontotext.trree.query.OwlimOrderIterator.createIteration(OwlimOrderIterator.java:102)
+	at org.eclipse.rdf4j.common.iteration.DelayedIteration.hasNext(DelayedIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at org.eclipse.rdf4j.common.iteration.LimitIteration.hasNext(LimitIteration.java:67)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailConnectionImpl$ConnectionClosingIteration.hasNext(SailConnectionImpl.java:3052)
+	at com.ontotext.trree.query.LoggingClosableIteration.hasNext(LoggingClosableIteration.java:87)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:476)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:443)
+	at com.ontotext.forest.core.semantic.repository.SemanticRepository$WithRawConnection.run(SemanticRepository.java:218)
+	at com.ontotext.forest.graphexplore.GraphExploreController.links(GraphExploreController.java:517)
+	at jdk.internal.reflect.GeneratedMethodAccessor134.invoke(Unknown Source)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:190)
+	at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:138)
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:105)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:878)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:792)
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1040)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:943)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1006)
+	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:898)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:655)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:883)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:764)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:228)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.core.request.RequestFilter.doFilterInternal(RequestFilter.java:52)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.github.ziplet.filter.compression.CompressingFilter.doFilter(CompressingFilter.java:263)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.security.AdminDelegatingFilterProxy.doFilter(AdminDelegatingFilterProxy.java:84)
+	at org.springframework.web.filter.DelegatingFilterProxy.invokeDelegate(DelegatingFilterProxy.java:358)
+	at org.springframework.web.filter.DelegatingFilterProxy.doFilter(DelegatingFilterProxy.java:271)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:202)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:97)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:542)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:143)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:92)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:78)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:357)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:382)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:65)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:893)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1723)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:49)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base/java.lang.Thread.run(Thread.java:829)
+[ERROR] 2021-08-15 05:49:19,461 [repositories/ECDC | c.o.t.q.LoggingClosableIteration] Error while executing query: 4ms
+<?xml version='1.0'?>
+<query includeInferred='true' maxExecutionTime='0'>
+	<body>PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
+PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
+PREFIX onto: &lt;http://www.ontotext.com/&gt;
+PREFIX rank: &lt;http://www.ontotext.com/owlim/RDFRank#&gt;
+
+SELECT ?peer (GROUP_CONCAT(DISTINCT ?pred; separator="&lt;&gt;") as ?preds)
+       # The rest aren't used when we process the results but are needed for ORDER BY to work properly
+       (MIN(?preferredTypesNorm) AS ?minPrefTypes)
+       (MIN(?preferredPredicatesNorm) AS ?minPrefPreds)
+       (?minPrefTypes + ?minPrefPreds AS ?minTypeAndPred)
+       (MIN(?isMeta) AS ?minIsMeta)
+
+{
+
+    BIND (&lt;http://example.org/ns#countryterritoryCode&gt; as ?node)
+	{
+	    # Left to right relations (starting IRI is the subject)
+        ?node ?p ?o .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("L&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+    }
+    UNION
+    {
+	    # Right to left relations (starting IRI is the object)
+		?o ?p ?node .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("R&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+	}
+
+    # Preferred predicates filter
+	BIND(10000000 AS ?preferredPredicatesNorm)
+
+    # Preferred types filter
+	BIND(10000000 AS ?preferredTypesNorm)
+
+    # Rejected predicates filter, they are IRIs which are not listed as links but will be listed as properties in
+    # through resourceProperties.sparql
+	FILTER (?p not in (&lt;http://dbpedia.org/property/logo&gt; , &lt;http://dbpedia.org/property/hasPhotoCollection&gt; , &lt;http://dbpedia.org/property/website&gt; , &lt;http://dbpedia.org/property/homepage&gt; , &lt;http://dbpedia.org/ontology/thumbnail&gt; , &lt;http://xmlns.com/foaf/0.1/depiction&gt; , &lt;http://xmlns.com/foaf/0.1/homepage&gt; , &lt;http://xmlns.com/foaf/0.1/mbox&gt;))
+
+	# If a rejectedPredicate ends with a * it is treated as a rejectedPredicatesStartsWith and for each !strstarts(str(?p), ...) is added
+    FILTER(!strstarts(str(?p), "http://dbpedia.org/ontology/wikiPage") &amp;&amp; !strstarts(str(?p), "http://dbpedia.org/property/wikiPage") &amp;&amp; !strstarts(str(?p), "http://factforge.net/"))
+
+    # Rejected types filter
+    FILTER NOT EXISTS {
+        VALUES (?rt) {  }
+        ?peer a ?rt .
+    }
+
+  	BIND (strstarts(str(?p), "http://purl.org/dc/terms/") || strstarts(str(?p), "http://dbpedia.org/ontology/subsidiary") || ?p = &lt;http://dbpedia.org/property/isCitedBy&gt; as ?isMeta)
+
+
+    
+
+}
+
+# Grouping by ?rank needed so that ORDER BY works properly
+GROUP BY ?peer ?rank
+
+# First we get everything that has both a preferred type and preffered predicate (lowest value type/predicate sorts higher)
+# Then we get everything that has either a pereferred type or a preferred predicate (lowest value type/predicate sorts higher)
+# Then we get everything that ISN'T solely meta predicates (dc:xxx or dbo:subsidiary)
+# Finally we sort according to highest RDFRank
+ORDER BY ?minTypeAndPred ?minIsMeta DESC(?rank)
+
+# Total limit on peers (i.e. balls on the diagram)
+LIMIT 20
+</body>
+</query>
+
+com.ontotext.trree.util.NotEnoughMemoryForDistinctGroupBy: Insufficient free Heap Memory 231Mb for group by and distinct, threshold:250Mb, reached 0Mb
+	at com.ontotext.trree.util.DistinctMemoryMonitor.updateGroupByMemory(DistinctMemoryMonitor.java:73)
+	at com.ontotext.trree.util.LongLongKeyBase.<init>(LongLongKeyBase.java:38)
+	at com.ontotext.trree.util.LongLongKeyMap.<init>(LongLongKeyMap.java:15)
+	at com.ontotext.trree.query.GdbGroupIterator.buildEntries(GdbGroupIterator.java:198)
+	at com.ontotext.trree.query.GdbGroupIterator.createIterator(GdbGroupIterator.java:144)
+	at com.ontotext.trree.query.GdbGroupIterator.hasNext(GdbGroupIterator.java:106)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at com.ontotext.trree.query.OwlimOrderIterator.createIteration(OwlimOrderIterator.java:102)
+	at org.eclipse.rdf4j.common.iteration.DelayedIteration.hasNext(DelayedIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at org.eclipse.rdf4j.common.iteration.LimitIteration.hasNext(LimitIteration.java:67)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailConnectionImpl$ConnectionClosingIteration.hasNext(SailConnectionImpl.java:3052)
+	at com.ontotext.trree.query.LoggingClosableIteration.hasNext(LoggingClosableIteration.java:87)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:476)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:443)
+	at com.ontotext.forest.core.semantic.repository.SemanticRepository$WithRawConnection.run(SemanticRepository.java:218)
+	at com.ontotext.forest.graphexplore.GraphExploreController.links(GraphExploreController.java:517)
+	at jdk.internal.reflect.GeneratedMethodAccessor134.invoke(Unknown Source)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:190)
+	at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:138)
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:105)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:878)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:792)
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1040)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:943)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1006)
+	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:898)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:655)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:883)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:764)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:228)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.core.request.RequestFilter.doFilterInternal(RequestFilter.java:52)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.github.ziplet.filter.compression.CompressingFilter.doFilter(CompressingFilter.java:263)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.security.AdminDelegatingFilterProxy.doFilter(AdminDelegatingFilterProxy.java:84)
+	at org.springframework.web.filter.DelegatingFilterProxy.invokeDelegate(DelegatingFilterProxy.java:358)
+	at org.springframework.web.filter.DelegatingFilterProxy.doFilter(DelegatingFilterProxy.java:271)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:202)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:97)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:542)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:143)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:92)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:78)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:357)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:382)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:65)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:893)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1723)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:49)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base/java.lang.Thread.run(Thread.java:829)
+[ERROR] 2021-08-15 05:49:27,629 [repositories/ECDC | c.o.t.q.LoggingClosableIteration] Error while executing query: 3ms
+<?xml version='1.0'?>
+<query includeInferred='true' maxExecutionTime='0'>
+	<body>PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
+PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
+PREFIX onto: &lt;http://www.ontotext.com/&gt;
+PREFIX rank: &lt;http://www.ontotext.com/owlim/RDFRank#&gt;
+
+SELECT ?peer (GROUP_CONCAT(DISTINCT ?pred; separator="&lt;&gt;") as ?preds)
+       # The rest aren't used when we process the results but are needed for ORDER BY to work properly
+       (MIN(?preferredTypesNorm) AS ?minPrefTypes)
+       (MIN(?preferredPredicatesNorm) AS ?minPrefPreds)
+       (?minPrefTypes + ?minPrefPreds AS ?minTypeAndPred)
+       (MIN(?isMeta) AS ?minIsMeta)
+
+{
+
+    BIND (&lt;http://purl.org/linked-data/cube#DataStructureDefinition&gt; as ?node)
+	{
+	    # Left to right relations (starting IRI is the subject)
+        ?node ?p ?o .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("L&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+    }
+    UNION
+    {
+	    # Right to left relations (starting IRI is the object)
+		?o ?p ?node .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("R&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+	}
+
+    # Preferred predicates filter
+	BIND(10000000 AS ?preferredPredicatesNorm)
+
+    # Preferred types filter
+	BIND(10000000 AS ?preferredTypesNorm)
+
+    # Rejected predicates filter, they are IRIs which are not listed as links but will be listed as properties in
+    # through resourceProperties.sparql
+	FILTER (?p not in (&lt;http://dbpedia.org/property/logo&gt; , &lt;http://dbpedia.org/property/hasPhotoCollection&gt; , &lt;http://dbpedia.org/property/website&gt; , &lt;http://dbpedia.org/property/homepage&gt; , &lt;http://dbpedia.org/ontology/thumbnail&gt; , &lt;http://xmlns.com/foaf/0.1/depiction&gt; , &lt;http://xmlns.com/foaf/0.1/homepage&gt; , &lt;http://xmlns.com/foaf/0.1/mbox&gt;))
+
+	# If a rejectedPredicate ends with a * it is treated as a rejectedPredicatesStartsWith and for each !strstarts(str(?p), ...) is added
+    FILTER(!strstarts(str(?p), "http://dbpedia.org/ontology/wikiPage") &amp;&amp; !strstarts(str(?p), "http://dbpedia.org/property/wikiPage") &amp;&amp; !strstarts(str(?p), "http://factforge.net/"))
+
+    # Rejected types filter
+    FILTER NOT EXISTS {
+        VALUES (?rt) {  }
+        ?peer a ?rt .
+    }
+
+  	BIND (strstarts(str(?p), "http://purl.org/dc/terms/") || strstarts(str(?p), "http://dbpedia.org/ontology/subsidiary") || ?p = &lt;http://dbpedia.org/property/isCitedBy&gt; as ?isMeta)
+
+
+    
+
+}
+
+# Grouping by ?rank needed so that ORDER BY works properly
+GROUP BY ?peer ?rank
+
+# First we get everything that has both a preferred type and preffered predicate (lowest value type/predicate sorts higher)
+# Then we get everything that has either a pereferred type or a preferred predicate (lowest value type/predicate sorts higher)
+# Then we get everything that ISN'T solely meta predicates (dc:xxx or dbo:subsidiary)
+# Finally we sort according to highest RDFRank
+ORDER BY ?minTypeAndPred ?minIsMeta DESC(?rank)
+
+# Total limit on peers (i.e. balls on the diagram)
+LIMIT 20
+</body>
+</query>
+
+com.ontotext.trree.util.NotEnoughMemoryForDistinctGroupBy: Insufficient free Heap Memory 226Mb for group by and distinct, threshold:250Mb, reached 0Mb
+	at com.ontotext.trree.util.DistinctMemoryMonitor.updateGroupByMemory(DistinctMemoryMonitor.java:73)
+	at com.ontotext.trree.util.LongLongKeyBase.<init>(LongLongKeyBase.java:38)
+	at com.ontotext.trree.util.LongLongKeyMap.<init>(LongLongKeyMap.java:15)
+	at com.ontotext.trree.query.GdbGroupIterator.buildEntries(GdbGroupIterator.java:198)
+	at com.ontotext.trree.query.GdbGroupIterator.createIterator(GdbGroupIterator.java:144)
+	at com.ontotext.trree.query.GdbGroupIterator.hasNext(GdbGroupIterator.java:106)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at com.ontotext.trree.query.OwlimOrderIterator.createIteration(OwlimOrderIterator.java:102)
+	at org.eclipse.rdf4j.common.iteration.DelayedIteration.hasNext(DelayedIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at org.eclipse.rdf4j.common.iteration.LimitIteration.hasNext(LimitIteration.java:67)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailConnectionImpl$ConnectionClosingIteration.hasNext(SailConnectionImpl.java:3052)
+	at com.ontotext.trree.query.LoggingClosableIteration.hasNext(LoggingClosableIteration.java:87)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:476)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:443)
+	at com.ontotext.forest.core.semantic.repository.SemanticRepository$WithRawConnection.run(SemanticRepository.java:218)
+	at com.ontotext.forest.graphexplore.GraphExploreController.links(GraphExploreController.java:517)
+	at jdk.internal.reflect.GeneratedMethodAccessor134.invoke(Unknown Source)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:190)
+	at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:138)
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:105)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:878)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:792)
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1040)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:943)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1006)
+	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:898)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:655)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:883)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:764)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:228)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.core.request.RequestFilter.doFilterInternal(RequestFilter.java:52)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.github.ziplet.filter.compression.CompressingFilter.doFilter(CompressingFilter.java:263)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.security.AdminDelegatingFilterProxy.doFilter(AdminDelegatingFilterProxy.java:84)
+	at org.springframework.web.filter.DelegatingFilterProxy.invokeDelegate(DelegatingFilterProxy.java:358)
+	at org.springframework.web.filter.DelegatingFilterProxy.doFilter(DelegatingFilterProxy.java:271)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:202)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:97)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:542)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:143)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:92)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:78)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:357)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:382)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:65)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:893)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1723)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:49)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base/java.lang.Thread.run(Thread.java:829)
+[ERROR] 2021-08-15 05:49:31,091 [repositories/ECDC | c.o.t.q.LoggingClosableIteration] Error while executing query: 4ms
+<?xml version='1.0'?>
+<query includeInferred='true' maxExecutionTime='0'>
+	<body>PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
+PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
+PREFIX onto: &lt;http://www.ontotext.com/&gt;
+PREFIX rank: &lt;http://www.ontotext.com/owlim/RDFRank#&gt;
+
+SELECT ?peer (GROUP_CONCAT(DISTINCT ?pred; separator="&lt;&gt;") as ?preds)
+       # The rest aren't used when we process the results but are needed for ORDER BY to work properly
+       (MIN(?preferredTypesNorm) AS ?minPrefTypes)
+       (MIN(?preferredPredicatesNorm) AS ?minPrefPreds)
+       (?minPrefTypes + ?minPrefPreds AS ?minTypeAndPred)
+       (MIN(?isMeta) AS ?minIsMeta)
+
+{
+
+    BIND (&lt;http://example.org/ns#year&gt; as ?node)
+	{
+	    # Left to right relations (starting IRI is the subject)
+        ?node ?p ?o .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("L&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+    }
+    UNION
+    {
+	    # Right to left relations (starting IRI is the object)
+		?o ?p ?node .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("R&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+	}
+
+    # Preferred predicates filter
+	BIND(10000000 AS ?preferredPredicatesNorm)
+
+    # Preferred types filter
+	BIND(10000000 AS ?preferredTypesNorm)
+
+    # Rejected predicates filter, they are IRIs which are not listed as links but will be listed as properties in
+    # through resourceProperties.sparql
+	FILTER (?p not in (&lt;http://dbpedia.org/property/logo&gt; , &lt;http://dbpedia.org/property/hasPhotoCollection&gt; , &lt;http://dbpedia.org/property/website&gt; , &lt;http://dbpedia.org/property/homepage&gt; , &lt;http://dbpedia.org/ontology/thumbnail&gt; , &lt;http://xmlns.com/foaf/0.1/depiction&gt; , &lt;http://xmlns.com/foaf/0.1/homepage&gt; , &lt;http://xmlns.com/foaf/0.1/mbox&gt;))
+
+	# If a rejectedPredicate ends with a * it is treated as a rejectedPredicatesStartsWith and for each !strstarts(str(?p), ...) is added
+    FILTER(!strstarts(str(?p), "http://dbpedia.org/ontology/wikiPage") &amp;&amp; !strstarts(str(?p), "http://dbpedia.org/property/wikiPage") &amp;&amp; !strstarts(str(?p), "http://factforge.net/"))
+
+    # Rejected types filter
+    FILTER NOT EXISTS {
+        VALUES (?rt) {  }
+        ?peer a ?rt .
+    }
+
+  	BIND (strstarts(str(?p), "http://purl.org/dc/terms/") || strstarts(str(?p), "http://dbpedia.org/ontology/subsidiary") || ?p = &lt;http://dbpedia.org/property/isCitedBy&gt; as ?isMeta)
+
+
+    
+
+}
+
+# Grouping by ?rank needed so that ORDER BY works properly
+GROUP BY ?peer ?rank
+
+# First we get everything that has both a preferred type and preffered predicate (lowest value type/predicate sorts higher)
+# Then we get everything that has either a pereferred type or a preferred predicate (lowest value type/predicate sorts higher)
+# Then we get everything that ISN'T solely meta predicates (dc:xxx or dbo:subsidiary)
+# Finally we sort according to highest RDFRank
+ORDER BY ?minTypeAndPred ?minIsMeta DESC(?rank)
+
+# Total limit on peers (i.e. balls on the diagram)
+LIMIT 20
+</body>
+</query>
+
+com.ontotext.trree.util.NotEnoughMemoryForDistinctGroupBy: Insufficient free Heap Memory 224Mb for group by and distinct, threshold:250Mb, reached 0Mb
+	at com.ontotext.trree.util.DistinctMemoryMonitor.updateGroupByMemory(DistinctMemoryMonitor.java:73)
+	at com.ontotext.trree.util.LongLongKeyBase.<init>(LongLongKeyBase.java:38)
+	at com.ontotext.trree.util.LongLongKeyMap.<init>(LongLongKeyMap.java:15)
+	at com.ontotext.trree.query.GdbGroupIterator.buildEntries(GdbGroupIterator.java:198)
+	at com.ontotext.trree.query.GdbGroupIterator.createIterator(GdbGroupIterator.java:144)
+	at com.ontotext.trree.query.GdbGroupIterator.hasNext(GdbGroupIterator.java:106)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at com.ontotext.trree.query.OwlimOrderIterator.createIteration(OwlimOrderIterator.java:102)
+	at org.eclipse.rdf4j.common.iteration.DelayedIteration.hasNext(DelayedIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at org.eclipse.rdf4j.common.iteration.LimitIteration.hasNext(LimitIteration.java:67)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailConnectionImpl$ConnectionClosingIteration.hasNext(SailConnectionImpl.java:3052)
+	at com.ontotext.trree.query.LoggingClosableIteration.hasNext(LoggingClosableIteration.java:87)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:476)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:443)
+	at com.ontotext.forest.core.semantic.repository.SemanticRepository$WithRawConnection.run(SemanticRepository.java:218)
+	at com.ontotext.forest.graphexplore.GraphExploreController.links(GraphExploreController.java:517)
+	at jdk.internal.reflect.GeneratedMethodAccessor134.invoke(Unknown Source)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:190)
+	at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:138)
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:105)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:878)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:792)
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1040)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:943)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1006)
+	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:898)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:655)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:883)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:764)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:228)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.core.request.RequestFilter.doFilterInternal(RequestFilter.java:52)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.github.ziplet.filter.compression.CompressingFilter.doFilter(CompressingFilter.java:263)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.security.AdminDelegatingFilterProxy.doFilter(AdminDelegatingFilterProxy.java:84)
+	at org.springframework.web.filter.DelegatingFilterProxy.invokeDelegate(DelegatingFilterProxy.java:358)
+	at org.springframework.web.filter.DelegatingFilterProxy.doFilter(DelegatingFilterProxy.java:271)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:202)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:97)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:542)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:143)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:92)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:78)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:357)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:382)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:65)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:893)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1723)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:49)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base/java.lang.Thread.run(Thread.java:829)
+[ERROR] 2021-08-15 05:49:34,718 [repositories/ECDC | c.o.t.q.LoggingClosableIteration] Error while executing query: 9ms
+<?xml version='1.0'?>
+<query includeInferred='true' maxExecutionTime='0'>
+	<body>PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
+PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
+PREFIX onto: &lt;http://www.ontotext.com/&gt;
+PREFIX rank: &lt;http://www.ontotext.com/owlim/RDFRank#&gt;
+
+SELECT ?peer (GROUP_CONCAT(DISTINCT ?pred; separator="&lt;&gt;") as ?preds)
+       # The rest aren't used when we process the results but are needed for ORDER BY to work properly
+       (MIN(?preferredTypesNorm) AS ?minPrefTypes)
+       (MIN(?preferredPredicatesNorm) AS ?minPrefPreds)
+       (?minPrefTypes + ?minPrefPreds AS ?minTypeAndPred)
+       (MIN(?isMeta) AS ?minIsMeta)
+
+{
+
+    BIND (&lt;http://example.org/ns#dataset-covid&gt; as ?node)
+	{
+	    # Left to right relations (starting IRI is the subject)
+        ?node ?p ?o .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("L&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+    }
+    UNION
+    {
+	    # Right to left relations (starting IRI is the object)
+		?o ?p ?node .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("R&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+	}
+
+    # Preferred predicates filter
+	BIND(10000000 AS ?preferredPredicatesNorm)
+
+    # Preferred types filter
+	BIND(10000000 AS ?preferredTypesNorm)
+
+    # Rejected predicates filter, they are IRIs which are not listed as links but will be listed as properties in
+    # through resourceProperties.sparql
+	FILTER (?p not in (&lt;http://dbpedia.org/property/logo&gt; , &lt;http://dbpedia.org/property/hasPhotoCollection&gt; , &lt;http://dbpedia.org/property/website&gt; , &lt;http://dbpedia.org/property/homepage&gt; , &lt;http://dbpedia.org/ontology/thumbnail&gt; , &lt;http://xmlns.com/foaf/0.1/depiction&gt; , &lt;http://xmlns.com/foaf/0.1/homepage&gt; , &lt;http://xmlns.com/foaf/0.1/mbox&gt;))
+
+	# If a rejectedPredicate ends with a * it is treated as a rejectedPredicatesStartsWith and for each !strstarts(str(?p), ...) is added
+    FILTER(!strstarts(str(?p), "http://dbpedia.org/ontology/wikiPage") &amp;&amp; !strstarts(str(?p), "http://dbpedia.org/property/wikiPage") &amp;&amp; !strstarts(str(?p), "http://factforge.net/"))
+
+    # Rejected types filter
+    FILTER NOT EXISTS {
+        VALUES (?rt) {  }
+        ?peer a ?rt .
+    }
+
+  	BIND (strstarts(str(?p), "http://purl.org/dc/terms/") || strstarts(str(?p), "http://dbpedia.org/ontology/subsidiary") || ?p = &lt;http://dbpedia.org/property/isCitedBy&gt; as ?isMeta)
+
+
+    
+
+}
+
+# Grouping by ?rank needed so that ORDER BY works properly
+GROUP BY ?peer ?rank
+
+# First we get everything that has both a preferred type and preffered predicate (lowest value type/predicate sorts higher)
+# Then we get everything that has either a pereferred type or a preferred predicate (lowest value type/predicate sorts higher)
+# Then we get everything that ISN'T solely meta predicates (dc:xxx or dbo:subsidiary)
+# Finally we sort according to highest RDFRank
+ORDER BY ?minTypeAndPred ?minIsMeta DESC(?rank)
+
+# Total limit on peers (i.e. balls on the diagram)
+LIMIT 20
+</body>
+</query>
+
+com.ontotext.trree.util.NotEnoughMemoryForDistinctGroupBy: Insufficient free Heap Memory 221Mb for group by and distinct, threshold:250Mb, reached 0Mb
+	at com.ontotext.trree.util.DistinctMemoryMonitor.updateGroupByMemory(DistinctMemoryMonitor.java:73)
+	at com.ontotext.trree.util.LongLongKeyBase.<init>(LongLongKeyBase.java:38)
+	at com.ontotext.trree.util.LongLongKeyMap.<init>(LongLongKeyMap.java:15)
+	at com.ontotext.trree.query.GdbGroupIterator.buildEntries(GdbGroupIterator.java:198)
+	at com.ontotext.trree.query.GdbGroupIterator.createIterator(GdbGroupIterator.java:144)
+	at com.ontotext.trree.query.GdbGroupIterator.hasNext(GdbGroupIterator.java:106)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at com.ontotext.trree.query.OwlimOrderIterator.createIteration(OwlimOrderIterator.java:102)
+	at org.eclipse.rdf4j.common.iteration.DelayedIteration.hasNext(DelayedIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at org.eclipse.rdf4j.common.iteration.LimitIteration.hasNext(LimitIteration.java:67)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailConnectionImpl$ConnectionClosingIteration.hasNext(SailConnectionImpl.java:3052)
+	at com.ontotext.trree.query.LoggingClosableIteration.hasNext(LoggingClosableIteration.java:87)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:476)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:443)
+	at com.ontotext.forest.core.semantic.repository.SemanticRepository$WithRawConnection.run(SemanticRepository.java:218)
+	at com.ontotext.forest.graphexplore.GraphExploreController.links(GraphExploreController.java:517)
+	at jdk.internal.reflect.GeneratedMethodAccessor134.invoke(Unknown Source)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:190)
+	at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:138)
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:105)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:878)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:792)
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1040)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:943)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1006)
+	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:898)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:655)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:883)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:764)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:228)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.core.request.RequestFilter.doFilterInternal(RequestFilter.java:52)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.github.ziplet.filter.compression.CompressingFilter.doFilter(CompressingFilter.java:263)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.security.AdminDelegatingFilterProxy.doFilter(AdminDelegatingFilterProxy.java:84)
+	at org.springframework.web.filter.DelegatingFilterProxy.invokeDelegate(DelegatingFilterProxy.java:358)
+	at org.springframework.web.filter.DelegatingFilterProxy.doFilter(DelegatingFilterProxy.java:271)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:202)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:97)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:542)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:143)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:92)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:78)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:357)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:382)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:65)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:893)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1723)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:49)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base/java.lang.Thread.run(Thread.java:829)
+[ERROR] 2021-08-15 05:49:39,049 [repositories/ECDC | c.o.t.q.LoggingClosableIteration] Error while executing query: 3ms
+<?xml version='1.0'?>
+<query includeInferred='true' maxExecutionTime='0'>
+	<body>PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
+PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
+PREFIX onto: &lt;http://www.ontotext.com/&gt;
+PREFIX rank: &lt;http://www.ontotext.com/owlim/RDFRank#&gt;
+
+SELECT ?peer (GROUP_CONCAT(DISTINCT ?pred; separator="&lt;&gt;") as ?preds)
+       # The rest aren't used when we process the results but are needed for ORDER BY to work properly
+       (MIN(?preferredTypesNorm) AS ?minPrefTypes)
+       (MIN(?preferredPredicatesNorm) AS ?minPrefPreds)
+       (?minPrefTypes + ?minPrefPreds AS ?minTypeAndPred)
+       (MIN(?isMeta) AS ?minIsMeta)
+
+{
+
+    BIND (&lt;http://example.org/ns#continentExp&gt; as ?node)
+	{
+	    # Left to right relations (starting IRI is the subject)
+        ?node ?p ?o .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("L&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+    }
+    UNION
+    {
+	    # Right to left relations (starting IRI is the object)
+		?o ?p ?node .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("R&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+	}
+
+    # Preferred predicates filter
+	BIND(10000000 AS ?preferredPredicatesNorm)
+
+    # Preferred types filter
+	BIND(10000000 AS ?preferredTypesNorm)
+
+    # Rejected predicates filter, they are IRIs which are not listed as links but will be listed as properties in
+    # through resourceProperties.sparql
+	FILTER (?p not in (&lt;http://dbpedia.org/property/logo&gt; , &lt;http://dbpedia.org/property/hasPhotoCollection&gt; , &lt;http://dbpedia.org/property/website&gt; , &lt;http://dbpedia.org/property/homepage&gt; , &lt;http://dbpedia.org/ontology/thumbnail&gt; , &lt;http://xmlns.com/foaf/0.1/depiction&gt; , &lt;http://xmlns.com/foaf/0.1/homepage&gt; , &lt;http://xmlns.com/foaf/0.1/mbox&gt;))
+
+	# If a rejectedPredicate ends with a * it is treated as a rejectedPredicatesStartsWith and for each !strstarts(str(?p), ...) is added
+    FILTER(!strstarts(str(?p), "http://dbpedia.org/ontology/wikiPage") &amp;&amp; !strstarts(str(?p), "http://dbpedia.org/property/wikiPage") &amp;&amp; !strstarts(str(?p), "http://factforge.net/"))
+
+    # Rejected types filter
+    FILTER NOT EXISTS {
+        VALUES (?rt) {  }
+        ?peer a ?rt .
+    }
+
+  	BIND (strstarts(str(?p), "http://purl.org/dc/terms/") || strstarts(str(?p), "http://dbpedia.org/ontology/subsidiary") || ?p = &lt;http://dbpedia.org/property/isCitedBy&gt; as ?isMeta)
+
+
+    
+
+}
+
+# Grouping by ?rank needed so that ORDER BY works properly
+GROUP BY ?peer ?rank
+
+# First we get everything that has both a preferred type and preffered predicate (lowest value type/predicate sorts higher)
+# Then we get everything that has either a pereferred type or a preferred predicate (lowest value type/predicate sorts higher)
+# Then we get everything that ISN'T solely meta predicates (dc:xxx or dbo:subsidiary)
+# Finally we sort according to highest RDFRank
+ORDER BY ?minTypeAndPred ?minIsMeta DESC(?rank)
+
+# Total limit on peers (i.e. balls on the diagram)
+LIMIT 20
+</body>
+</query>
+
+com.ontotext.trree.util.NotEnoughMemoryForDistinctGroupBy: Insufficient free Heap Memory 218Mb for group by and distinct, threshold:250Mb, reached 0Mb
+	at com.ontotext.trree.util.DistinctMemoryMonitor.updateGroupByMemory(DistinctMemoryMonitor.java:73)
+	at com.ontotext.trree.util.LongLongKeyBase.<init>(LongLongKeyBase.java:38)
+	at com.ontotext.trree.util.LongLongKeyMap.<init>(LongLongKeyMap.java:15)
+	at com.ontotext.trree.query.GdbGroupIterator.buildEntries(GdbGroupIterator.java:198)
+	at com.ontotext.trree.query.GdbGroupIterator.createIterator(GdbGroupIterator.java:144)
+	at com.ontotext.trree.query.GdbGroupIterator.hasNext(GdbGroupIterator.java:106)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at com.ontotext.trree.query.OwlimOrderIterator.createIteration(OwlimOrderIterator.java:102)
+	at org.eclipse.rdf4j.common.iteration.DelayedIteration.hasNext(DelayedIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at org.eclipse.rdf4j.common.iteration.LimitIteration.hasNext(LimitIteration.java:67)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailConnectionImpl$ConnectionClosingIteration.hasNext(SailConnectionImpl.java:3052)
+	at com.ontotext.trree.query.LoggingClosableIteration.hasNext(LoggingClosableIteration.java:87)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:476)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:443)
+	at com.ontotext.forest.core.semantic.repository.SemanticRepository$WithRawConnection.run(SemanticRepository.java:218)
+	at com.ontotext.forest.graphexplore.GraphExploreController.links(GraphExploreController.java:517)
+	at jdk.internal.reflect.GeneratedMethodAccessor134.invoke(Unknown Source)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:190)
+	at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:138)
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:105)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:878)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:792)
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1040)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:943)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1006)
+	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:898)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:655)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:883)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:764)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:228)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.core.request.RequestFilter.doFilterInternal(RequestFilter.java:52)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.github.ziplet.filter.compression.CompressingFilter.doFilter(CompressingFilter.java:263)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.security.AdminDelegatingFilterProxy.doFilter(AdminDelegatingFilterProxy.java:84)
+	at org.springframework.web.filter.DelegatingFilterProxy.invokeDelegate(DelegatingFilterProxy.java:358)
+	at org.springframework.web.filter.DelegatingFilterProxy.doFilter(DelegatingFilterProxy.java:271)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:202)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:97)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:542)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:143)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:92)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:78)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:357)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:382)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:65)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:893)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1723)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:49)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base/java.lang.Thread.run(Thread.java:829)
+[ERROR] 2021-08-15 05:49:56,169 [repositories/ECDC | c.o.t.q.LoggingClosableIteration] Error while executing query: 4ms
+<?xml version='1.0'?>
+<query includeInferred='true' maxExecutionTime='0'>
+	<body>PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
+PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
+PREFIX onto: &lt;http://www.ontotext.com/&gt;
+PREFIX rank: &lt;http://www.ontotext.com/owlim/RDFRank#&gt;
+
+SELECT ?peer (GROUP_CONCAT(DISTINCT ?pred; separator="&lt;&gt;") as ?preds)
+       # The rest aren't used when we process the results but are needed for ORDER BY to work properly
+       (MIN(?preferredTypesNorm) AS ?minPrefTypes)
+       (MIN(?preferredPredicatesNorm) AS ?minPrefPreds)
+       (?minPrefTypes + ?minPrefPreds AS ?minTypeAndPred)
+       (MIN(?isMeta) AS ?minIsMeta)
+
+{
+
+    BIND (&lt;http://example.org/ns#Germany1670&gt; as ?node)
+	{
+	    # Left to right relations (starting IRI is the subject)
+        ?node ?p ?o .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("L&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+    }
+    UNION
+    {
+	    # Right to left relations (starting IRI is the object)
+		?o ?p ?node .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("R&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+	}
+
+    # Preferred predicates filter
+	BIND(10000000 AS ?preferredPredicatesNorm)
+
+    # Preferred types filter
+	BIND(10000000 AS ?preferredTypesNorm)
+
+    # Rejected predicates filter, they are IRIs which are not listed as links but will be listed as properties in
+    # through resourceProperties.sparql
+	FILTER (?p not in (&lt;http://dbpedia.org/property/logo&gt; , &lt;http://dbpedia.org/property/hasPhotoCollection&gt; , &lt;http://dbpedia.org/property/website&gt; , &lt;http://dbpedia.org/property/homepage&gt; , &lt;http://dbpedia.org/ontology/thumbnail&gt; , &lt;http://xmlns.com/foaf/0.1/depiction&gt; , &lt;http://xmlns.com/foaf/0.1/homepage&gt; , &lt;http://xmlns.com/foaf/0.1/mbox&gt;))
+
+	# If a rejectedPredicate ends with a * it is treated as a rejectedPredicatesStartsWith and for each !strstarts(str(?p), ...) is added
+    FILTER(!strstarts(str(?p), "http://dbpedia.org/ontology/wikiPage") &amp;&amp; !strstarts(str(?p), "http://dbpedia.org/property/wikiPage") &amp;&amp; !strstarts(str(?p), "http://factforge.net/"))
+
+    # Rejected types filter
+    FILTER NOT EXISTS {
+        VALUES (?rt) {  }
+        ?peer a ?rt .
+    }
+
+  	BIND (strstarts(str(?p), "http://purl.org/dc/terms/") || strstarts(str(?p), "http://dbpedia.org/ontology/subsidiary") || ?p = &lt;http://dbpedia.org/property/isCitedBy&gt; as ?isMeta)
+
+
+    
+
+}
+
+# Grouping by ?rank needed so that ORDER BY works properly
+GROUP BY ?peer ?rank
+
+# First we get everything that has both a preferred type and preffered predicate (lowest value type/predicate sorts higher)
+# Then we get everything that has either a pereferred type or a preferred predicate (lowest value type/predicate sorts higher)
+# Then we get everything that ISN'T solely meta predicates (dc:xxx or dbo:subsidiary)
+# Finally we sort according to highest RDFRank
+ORDER BY ?minTypeAndPred ?minIsMeta DESC(?rank)
+
+# Total limit on peers (i.e. balls on the diagram)
+LIMIT 20
+</body>
+</query>
+
+com.ontotext.trree.util.NotEnoughMemoryForDistinctGroupBy: Insufficient free Heap Memory 211Mb for group by and distinct, threshold:250Mb, reached 0Mb
+	at com.ontotext.trree.util.DistinctMemoryMonitor.updateGroupByMemory(DistinctMemoryMonitor.java:73)
+	at com.ontotext.trree.util.LongLongKeyBase.<init>(LongLongKeyBase.java:38)
+	at com.ontotext.trree.util.LongLongKeyMap.<init>(LongLongKeyMap.java:15)
+	at com.ontotext.trree.query.GdbGroupIterator.buildEntries(GdbGroupIterator.java:198)
+	at com.ontotext.trree.query.GdbGroupIterator.createIterator(GdbGroupIterator.java:144)
+	at com.ontotext.trree.query.GdbGroupIterator.hasNext(GdbGroupIterator.java:106)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at com.ontotext.trree.query.OwlimOrderIterator.createIteration(OwlimOrderIterator.java:102)
+	at org.eclipse.rdf4j.common.iteration.DelayedIteration.hasNext(DelayedIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at org.eclipse.rdf4j.common.iteration.LimitIteration.hasNext(LimitIteration.java:67)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailConnectionImpl$ConnectionClosingIteration.hasNext(SailConnectionImpl.java:3052)
+	at com.ontotext.trree.query.LoggingClosableIteration.hasNext(LoggingClosableIteration.java:87)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:476)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:443)
+	at com.ontotext.forest.core.semantic.repository.SemanticRepository$WithRawConnection.run(SemanticRepository.java:218)
+	at com.ontotext.forest.graphexplore.GraphExploreController.links(GraphExploreController.java:517)
+	at jdk.internal.reflect.GeneratedMethodAccessor134.invoke(Unknown Source)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:190)
+	at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:138)
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:105)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:878)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:792)
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1040)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:943)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1006)
+	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:898)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:655)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:883)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:764)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:228)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.core.request.RequestFilter.doFilterInternal(RequestFilter.java:52)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.github.ziplet.filter.compression.CompressingFilter.doFilter(CompressingFilter.java:263)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.security.AdminDelegatingFilterProxy.doFilter(AdminDelegatingFilterProxy.java:84)
+	at org.springframework.web.filter.DelegatingFilterProxy.invokeDelegate(DelegatingFilterProxy.java:358)
+	at org.springframework.web.filter.DelegatingFilterProxy.doFilter(DelegatingFilterProxy.java:271)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:202)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:97)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:542)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:143)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:92)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:78)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:357)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:382)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:65)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:893)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1723)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:49)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base/java.lang.Thread.run(Thread.java:829)
+[ERROR] 2021-08-15 05:50:14,369 [repositories/ECDC | c.o.t.q.LoggingClosableIteration] Error while executing query: 4ms
+<?xml version='1.0'?>
+<query includeInferred='true' maxExecutionTime='0'>
+	<body>PREFIX rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;
+PREFIX rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
+PREFIX onto: &lt;http://www.ontotext.com/&gt;
+PREFIX rank: &lt;http://www.ontotext.com/owlim/RDFRank#&gt;
+
+SELECT ?peer (GROUP_CONCAT(DISTINCT ?pred; separator="&lt;&gt;") as ?preds)
+       # The rest aren't used when we process the results but are needed for ORDER BY to work properly
+       (MIN(?preferredTypesNorm) AS ?minPrefTypes)
+       (MIN(?preferredPredicatesNorm) AS ?minPrefPreds)
+       (?minPrefTypes + ?minPrefPreds AS ?minTypeAndPred)
+       (MIN(?isMeta) AS ?minIsMeta)
+
+{
+
+    BIND (&lt;http://example.org/ns#countryterritoryCode&gt; as ?node)
+	{
+	    # Left to right relations (starting IRI is the subject)
+        ?node ?p ?o .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("L&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+    }
+    UNION
+    {
+	    # Right to left relations (starting IRI is the object)
+		?o ?p ?node .
+        BIND (?o AS ?peer)
+        BIND (CONCAT("R&lt;", STR(?p), "&gt;") as ?pred)
+    	OPTIONAL { ?o rank:hasRDFRank ?rank }
+        FILTER(isURI(?o))
+	}
+
+    # Preferred predicates filter
+	BIND(10000000 AS ?preferredPredicatesNorm)
+
+    # Preferred types filter
+	BIND(10000000 AS ?preferredTypesNorm)
+
+    # Rejected predicates filter, they are IRIs which are not listed as links but will be listed as properties in
+    # through resourceProperties.sparql
+	FILTER (?p not in (&lt;http://dbpedia.org/property/logo&gt; , &lt;http://dbpedia.org/property/hasPhotoCollection&gt; , &lt;http://dbpedia.org/property/website&gt; , &lt;http://dbpedia.org/property/homepage&gt; , &lt;http://dbpedia.org/ontology/thumbnail&gt; , &lt;http://xmlns.com/foaf/0.1/depiction&gt; , &lt;http://xmlns.com/foaf/0.1/homepage&gt; , &lt;http://xmlns.com/foaf/0.1/mbox&gt;))
+
+	# If a rejectedPredicate ends with a * it is treated as a rejectedPredicatesStartsWith and for each !strstarts(str(?p), ...) is added
+    FILTER(!strstarts(str(?p), "http://dbpedia.org/ontology/wikiPage") &amp;&amp; !strstarts(str(?p), "http://dbpedia.org/property/wikiPage") &amp;&amp; !strstarts(str(?p), "http://factforge.net/"))
+
+    # Rejected types filter
+    FILTER NOT EXISTS {
+        VALUES (?rt) {  }
+        ?peer a ?rt .
+    }
+
+  	BIND (strstarts(str(?p), "http://purl.org/dc/terms/") || strstarts(str(?p), "http://dbpedia.org/ontology/subsidiary") || ?p = &lt;http://dbpedia.org/property/isCitedBy&gt; as ?isMeta)
+
+
+    
+
+}
+
+# Grouping by ?rank needed so that ORDER BY works properly
+GROUP BY ?peer ?rank
+
+# First we get everything that has both a preferred type and preffered predicate (lowest value type/predicate sorts higher)
+# Then we get everything that has either a pereferred type or a preferred predicate (lowest value type/predicate sorts higher)
+# Then we get everything that ISN'T solely meta predicates (dc:xxx or dbo:subsidiary)
+# Finally we sort according to highest RDFRank
+ORDER BY ?minTypeAndPred ?minIsMeta DESC(?rank)
+
+# Total limit on peers (i.e. balls on the diagram)
+LIMIT 20
+</body>
+</query>
+
+com.ontotext.trree.util.NotEnoughMemoryForDistinctGroupBy: Insufficient free Heap Memory 203Mb for group by and distinct, threshold:250Mb, reached 0Mb
+	at com.ontotext.trree.util.DistinctMemoryMonitor.updateGroupByMemory(DistinctMemoryMonitor.java:73)
+	at com.ontotext.trree.util.LongLongKeyBase.<init>(LongLongKeyBase.java:38)
+	at com.ontotext.trree.util.LongLongKeyMap.<init>(LongLongKeyMap.java:15)
+	at com.ontotext.trree.query.GdbGroupIterator.buildEntries(GdbGroupIterator.java:198)
+	at com.ontotext.trree.query.GdbGroupIterator.createIterator(GdbGroupIterator.java:144)
+	at com.ontotext.trree.query.GdbGroupIterator.hasNext(GdbGroupIterator.java:106)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at com.ontotext.trree.query.OwlimOrderIterator.createIteration(OwlimOrderIterator.java:102)
+	at org.eclipse.rdf4j.common.iteration.DelayedIteration.hasNext(DelayedIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.ConvertingIteration.hasNext(ConvertingIteration.java:62)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at org.eclipse.rdf4j.common.iteration.LimitIteration.hasNext(LimitIteration.java:67)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailIterationWrapper.hasNext(SailIterationWrapper.java:41)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.trree.SailConnectionImpl$ConnectionClosingIteration.hasNext(SailConnectionImpl.java:3052)
+	at com.ontotext.trree.query.LoggingClosableIteration.hasNext(LoggingClosableIteration.java:87)
+	at org.eclipse.rdf4j.common.iteration.IterationWrapper.hasNext(IterationWrapper.java:63)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:476)
+	at com.ontotext.forest.graphexplore.GraphExploreController$5.doInConnection(GraphExploreController.java:443)
+	at com.ontotext.forest.core.semantic.repository.SemanticRepository$WithRawConnection.run(SemanticRepository.java:218)
+	at com.ontotext.forest.graphexplore.GraphExploreController.links(GraphExploreController.java:517)
+	at jdk.internal.reflect.GeneratedMethodAccessor134.invoke(Unknown Source)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:566)
+	at org.springframework.web.method.support.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:190)
+	at org.springframework.web.method.support.InvocableHandlerMethod.invokeForRequest(InvocableHandlerMethod.java:138)
+	at org.springframework.web.servlet.mvc.method.annotation.ServletInvocableHandlerMethod.invokeAndHandle(ServletInvocableHandlerMethod.java:105)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.invokeHandlerMethod(RequestMappingHandlerAdapter.java:878)
+	at org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter.handleInternal(RequestMappingHandlerAdapter.java:792)
+	at org.springframework.web.servlet.mvc.method.AbstractHandlerMethodAdapter.handle(AbstractHandlerMethodAdapter.java:87)
+	at org.springframework.web.servlet.DispatcherServlet.doDispatch(DispatcherServlet.java:1040)
+	at org.springframework.web.servlet.DispatcherServlet.doService(DispatcherServlet.java:943)
+	at org.springframework.web.servlet.FrameworkServlet.processRequest(FrameworkServlet.java:1006)
+	at org.springframework.web.servlet.FrameworkServlet.doGet(FrameworkServlet.java:898)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:655)
+	at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:883)
+	at javax.servlet.http.HttpServlet.service(HttpServlet.java:764)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:228)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.core.request.RequestFilter.doFilterInternal(RequestFilter.java:52)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.springframework.web.filter.CharacterEncodingFilter.doFilterInternal(CharacterEncodingFilter.java:201)
+	at org.springframework.web.filter.OncePerRequestFilter.doFilter(OncePerRequestFilter.java:119)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.github.ziplet.filter.compression.CompressingFilter.doFilter(CompressingFilter.java:263)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at com.ontotext.forest.security.AdminDelegatingFilterProxy.doFilter(AdminDelegatingFilterProxy.java:84)
+	at org.springframework.web.filter.DelegatingFilterProxy.invokeDelegate(DelegatingFilterProxy.java:358)
+	at org.springframework.web.filter.DelegatingFilterProxy.doFilter(DelegatingFilterProxy.java:271)
+	at org.apache.catalina.core.ApplicationFilterChain.internalDoFilter(ApplicationFilterChain.java:190)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:163)
+	at org.apache.catalina.core.StandardWrapperValve.invoke(StandardWrapperValve.java:202)
+	at org.apache.catalina.core.StandardContextValve.invoke(StandardContextValve.java:97)
+	at org.apache.catalina.authenticator.AuthenticatorBase.invoke(AuthenticatorBase.java:542)
+	at org.apache.catalina.core.StandardHostValve.invoke(StandardHostValve.java:143)
+	at org.apache.catalina.valves.ErrorReportValve.invoke(ErrorReportValve.java:92)
+	at org.apache.catalina.core.StandardEngineValve.invoke(StandardEngineValve.java:78)
+	at org.apache.catalina.connector.CoyoteAdapter.service(CoyoteAdapter.java:357)
+	at org.apache.coyote.http11.Http11Processor.service(Http11Processor.java:382)
+	at org.apache.coyote.AbstractProcessorLight.process(AbstractProcessorLight.java:65)
+	at org.apache.coyote.AbstractProtocol$ConnectionHandler.process(AbstractProtocol.java:893)
+	at org.apache.tomcat.util.net.NioEndpoint$SocketProcessor.doRun(NioEndpoint.java:1723)
+	at org.apache.tomcat.util.net.SocketProcessorBase.run(SocketProcessorBase.java:49)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base/java.lang.Thread.run(Thread.java:829)

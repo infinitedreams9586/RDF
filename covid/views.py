@@ -4,12 +4,12 @@ from django.views import View
 
 from covid.engine import DCGraphCreator, ECDCSet
 
+import requests
 import urllib.request
 import os
 
 def get_directory():
     directory = "{0}/uploads".format(os.path.expanduser("~"))
-    #directory = "{0}/uploads".format('/usr/src/app')
     return directory
 
 def is_dir_exist():
@@ -21,6 +21,16 @@ def is_dir_exist():
 def create_directory():
     if not os.path.exists(get_directory()):
         os.makedirs(get_directory())
+
+def upload_to_graphdb(turtlefile):
+    url = 'http://localhost:7200/repositories/ECDC/statements'
+    headers = {
+        'Content-type': 'application/x-turtle',
+    }
+    response = requests.post(url, headers=headers, params={}, data=open(turtlefile,'r', encoding='utf-8').read())
+    if response.status_code not in [200, 204]:
+        raise HttpResponse(status=500)
+
 
 # Create your views here.
 def index(request):
@@ -61,8 +71,13 @@ class Download(BaseView):
         with open(os.path.join(get_directory(), "converted.ttl"), "w+") as f:
             f.write(graphCreator.create_graph(format='turtle'))
 
+        upload_to_graphdb(os.path.join(get_directory(), "converted.ttl"))
+
         self.clear_context()
-        self.add_to_context('message', 'Turtle file generated at {0}'.format(os.path.join(get_directory(), "converted.ttl")))
+        message = "{0}\n{1}".format('Turtle file generated at {0}.'.format(os.path.join(get_directory(), "converted.ttl")),
+                                  'File uploaded to GraphDB repository in ECDC')
+
+        self.add_to_context('message', message)
         return render(request, 'download.html', context=self.c)
 
 
