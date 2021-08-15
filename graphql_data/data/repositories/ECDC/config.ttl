@@ -30,4 +30,4 @@
           sail:sailType "owlim:Sail"
         ]
     ];
-  rdfs:label "Assignment Repo. for Bhavesh Dave" .
+  rdfs:label "" .

@@ -9,7 +9,7 @@ import urllib.request
 import os
 
 def get_directory():
-    directory = "{0}/uploads".format(os.path.expanduser("~"))
+    directory = "{0}/uploads".format('/usr/src/app')
     return directory
 
 def is_dir_exist():
@@ -23,7 +23,7 @@ def create_directory():
         os.makedirs(get_directory())
 
 def upload_to_graphdb(turtlefile):
-    url = 'http://localhost:7200/repositories/ECDC/statements'
+    url = 'http://graphdbinstance:7200/repositories/ECDC/statements'
     headers = {
         'Content-type': 'application/x-turtle',
     }
@@ -60,6 +60,7 @@ class Download(BaseView):
         # download file from url https://opendata.ecdc.europa.eu/covid19/nationalcasedeath_eueea_daily_ei/csv/data.csv
         csv_file = None
         data = dict(request.POST)
+        create_directory()
         with urllib.request.urlopen(data['fileurl'][0]) as f:
             csv_file = f.read().decode('utf-8')
 

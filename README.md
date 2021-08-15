@@ -6,9 +6,10 @@
 ```shell
 docker build -t tib-assignment .
 ```
-4. Start a docker container, using following command.
+4. Create a network and start a docker container, using following command.
 ```shell
-docker run -p 8000:8000 --name my-app -it tib-assignment 
+docker network create tib-net  
+docker run -p 8000:8000 --name my-app -it --network tib-net tib-assignment 
 ```
 5. Application is ready to run at,
 ```shell
@@ -34,11 +35,11 @@ docker pull ontotext/graphdb:9.9.0-se
 ```
 2. Start GraphDB container, with local storage.
 ```shell
-docker run -p 127.0.0.1:7200:7200 -v [Your Local Data Directory Path]:/opt/graphdb/home --name graphdbinstance -t ontotext/graphdb:9.9.0-se
+docker run -p 0.0.0.0:7200:7200 -v [your local data directory]:/opt/graphdb/home --network tib-net --name graphdbinstance ontotext/graphdb:9.9.0-se
 ```
 3. Access GraphDB through your local browser.
 4. Apply Standard Edition Trial license in GraphDB.
-5. Create a repository name "ECDC".
+5. Create a repository name "ECDC" with "RDFS(Optimized)" Ruleset.
 
 #### How to Run Application ####
 1. Make sure that Django application and GraphDB container is running.
