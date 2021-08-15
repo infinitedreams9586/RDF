@@ -73,8 +73,11 @@ SELECT ?geoId (SUM(?y) as ?casesSum) (SUM(?z) as ?deathSum) WHERE {
 7. Query result and verification.
 
 ![Query & Result](/docs/QueryResult.png)
+  
+8. Verification with CSV  
+![Verification](/docs/Verification.png)
 
-7. GraphDB visualization
+9.GraphDB Visualization
 
 ![Visualization](/docs/Visualization.png)
 
