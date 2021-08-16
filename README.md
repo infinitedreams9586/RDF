@@ -9,6 +9,8 @@ docker build -t tib-assignment .
 4. Create a network and start a docker container, using following command.
 ```shell
 docker network create tib-net  
+```
+```shell
 docker run -p 8000:8000 --name my-app -it --network tib-net tib-assignment 
 ```
 5. Application is ready to run at,
